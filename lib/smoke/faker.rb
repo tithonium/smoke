@@ -22,12 +22,14 @@ class Smoke
       def method_missing(method, *)
         if m = method.match(/\A(character|word)s_(\d+)\Z/)
           return ::Faker::Lorem.send("#{m[1]}s", number: m[2].to_i)
+        elsif m = method.match(/\Aemail_(\d+)\Z/)
+          return ::Faker::Internet.safe_email(name: m[1].to_i)
         end
         super
       end
       
       def respond_to_missing?(method, _)
-        return true if method.match(/\A(character|word)s_(\d+)\Z/)
+        return true if method.match(/\A((character|word|)s|email)_(\d+)\Z/)
         super
       end
       
