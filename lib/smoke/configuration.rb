@@ -75,7 +75,7 @@ class Smoke
       end
             
       if @options[:config_file] && File.exist?(@options[:config_file])
-        config = YAML.parse(IO.read(@options[:config_file]))
+        config = YAML.load(IO.read(@options[:config_file]))
         @options = config.merge(@options)
       end
 
@@ -91,15 +91,15 @@ class Smoke
     end
     
     def host
-      @host ||= ENV['SMOKE_HOST'] || "localhost:3000"
+      @host ||= @options[:host] || ENV['SMOKE_HOST'] || "localhost:3000"
     end
     
     def https
-      @https ||= (if ENV.key?('SMOKE_HTTPS')
+      @https ||= (@options[:https] || (if ENV.key?('SMOKE_HTTPS')
         ENV['SMOKE_HTTPS'] =~ /1|y(es)?|t(rue)?/i
       else
         host !~ /localhost/
-      end) ? 'https' : 'http'
+      end)) ? 'https' : 'http'
     end
 
     %i[driver test_root].each do |opt|
