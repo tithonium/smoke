@@ -83,13 +83,13 @@ class Smoke
     rescue => ex
       STDERR.puts "#{ex.class.name}: #{ex.message}".red
       @exception = ex
-      unless ex.is_a?(Smoke::Error) || ex.is_a?(Capybara::Poltergeist::JavascriptError)
+      # unless ex.is_a?(Smoke::Error) || ex.is_a?(Capybara::Poltergeist::JavascriptError)
         puts ex.backtrace.join("\n") if @smoke.configuration.trace?
         unless @smoke.configuration.force?
           sleep 4
           raise ex
         end
-      end
+      # end
     ensure
       puts
     end

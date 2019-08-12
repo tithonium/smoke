@@ -29,6 +29,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'capybara'
   spec.add_dependency 'poltergeist'
+  spec.add_dependency 'faker'
   spec.add_dependency 'pry'
   spec.add_dependency 'colorize'
   # spec.add_dependency 'selenium-webdriver'

@@ -19,6 +19,11 @@ class Smoke
         @requirements += Array(definitions).flatten.map(&:to_sym)
       end
 
+      def sleep(*s)
+        STDERR.puts "WARNING: Use 'delay', not 'sleep' in your test definitions."
+        delay(*s)
+      end
+
       def method_missing(name, *args, &block)
         raise NotImplementedError, "No blocks in step definitions please!" unless block.nil?
         if @dsl.smoke.configuration.respond_to?(name)
