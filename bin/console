@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require "smoke"
+
+smoke = Smoke.new(ARGV)
+
+smoke.console

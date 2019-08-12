@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require "smoke"
+
+smoke = Smoke.new(ARGV)
+
+ARGV << 'run' if ARGV.empty?
+
+while ARGV.length > 0
+  case arg = ARGV.shift
+  when "console"
+    smoke.console
+  when "run"
+    smoke.run_all(ARGV)
+    smoke.report
+    exit(smoke.failed? ? 1 : 0)
+  end
+end

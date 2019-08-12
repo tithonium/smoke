@@ -1,0 +1,9 @@
+smoke :Google do
+
+  reset_session
+
+  visit "http://google.com/"
+  desire url: %r[https://www.google.com/]
+  expect text: ['About', 'Search']
+
+end
