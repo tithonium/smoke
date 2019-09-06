@@ -2,11 +2,16 @@ class Smoke
   class DSL
     
     class Definition
+      Harness = Smoke::Test::Harness
+      
       def initialize(name, dsl)
         @name = name.to_sym
         @dsl = dsl
         @steps = []
         @requirements = []
+        Harness.public_instance_methods(true).each do |m|
+          define_singleton_method(m) {|*args, &block| _handle_method(m, *args, &block) }
+        end
       end
 
       attr_reader :name, :steps, :requirements
@@ -24,16 +29,35 @@ class Smoke
         delay(*s)
       end
 
+      def harness ; self.class::Harness ; end
+      
+      def mode ; :standard ; end
+
       def method_missing(name, *args, &block)
+        _handle_method(name, *args, &block)
+      end
+      
+      def _handle_method(name, *args, &block)
         raise NotImplementedError, "No blocks in step definitions please!" unless block.nil?
-        if @dsl.smoke.configuration.respond_to?(name)
-          @dsl.smoke.configuration.send(name, *args)
-        else
-          steps << [name, *args]
-        end
+        steps << [name, *args]
       end
       
     end
+    
+    # class JsonDefinition < Definition
+    #   Harness = Smoke::Test::JsonHarness
+    #
+    #   def initialize(name, dsl, block)
+    #     super(name, dsl)
+    #     @block = block
+    #   end
+    #
+    #   def mode ; :json ; end
+    #   def _handle_method(name, *args, &block)
+    #     STDERR.puts [name, args, block].inspect
+    #     steps << (block ? [name, *args, block] : [name, *args])
+    #   end
+    # end
     
     class Proxy
       
@@ -51,6 +75,15 @@ class Smoke
         definition = Definition.new(name, @dsl)
         definition.instance_eval(&block)
         @dsl.definitions[name] = definition
+      end
+      
+      def jsmoke(name, *a, &block)
+        # definition = JsonDefinition.new(name, @dsl, block)
+        # @dsl.definitions[name] = definition
+      end
+
+      def respond_to_missing?(name, all = false)
+        super || @dsl.smoke.configuration.respond_to?(name)
       end
       
       def method_missing(name, *args, &block)

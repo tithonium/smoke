@@ -20,6 +20,11 @@ class Smoke
         puts *a
       end
       
+      def pry
+        require 'pry'
+        binding.pry
+      end
+
       def visit(url)
         puts "Navigating to #{url.inspect}...".light_black
         session.visit(url)
@@ -47,7 +52,13 @@ class Smoke
         options[:match] ||= :first
         puts "Clicking on #{locator.inspect}...".light_black
         _possibly_within(options) do
-          session.click_link_or_button(locator, options)
+          field = if locator.match(%r{//|@})
+            session.find(:xpath, locator)
+          else
+            session.first('a,submit,reset,image,button', minimum: 0)
+          end
+          field ||= element_associated_with_text(locator, **options)
+          field.click
         end
         wait_until_loaded
       end
@@ -56,22 +67,48 @@ class Smoke
         options[:match] ||= :first
         puts "Clicking on #{locator.inspect}...".light_black
         _possibly_within(options) do
-          session.find(locator, options).click
+          locator = if locator.match(%r{//|@})
+            [:xpath, locator]
+          else
+            [locator]
+          end
+          session.find(*locator, options).click
         end
-        # wait_until_loaded
+        wait_until_loaded
+      end
+      
+      def click_text(locator, options = {})
+        options[:match] ||= :first
+        puts "Clicking on #{locator.inspect}...".light_black
+        _possibly_within(options) do
+          deepest_element_with_text(locator, **options).click
+        end
+        wait_until_loaded
       end
       
       def check(locator, options = {})
         puts "Checking #{locator.inspect}...".light_black
         _possibly_within(options) do
-          session.check(locator, options)
+          field = if locator.match(%r{//|@})
+            session.find(:xpath, locator)
+          else
+            session.first(locator, minimum: 0)
+          end
+          field ||= element_associated_with_text(locator, tag: 'input', **options)
+          field.check(options)
         end
       end
-      
+
       def uncheck(locator, options = {})
         puts "Unchecking #{locator.inspect}...".light_black
         _possibly_within(options) do
-          session.uncheck(locator, options)
+          field = if locator.match(%r{//|@})
+            session.find(:xpath, locator)
+          else
+            session.first(locator, minimum: 0)
+          end
+          field ||= element_associated_with_text(locator, tag: 'input', **options)
+          field.uncheck(options)
         end
       end
       
@@ -81,8 +118,16 @@ class Smoke
           value = Smoke::Faker.send(value)
         end
         
+        value += "\n" if options[:enter]
+        
         _possibly_within(options) do
-          session.fill_in(field_name, with: value)
+          field = if field_name.match(%r{//|@})
+            session.find(:xpath, field_name)
+          else
+            session.first(:fillable_field, field_name, minimum: 0, **options)
+          end
+          field ||= element_associated_with_text(field_name, tag: 'input', **options)
+          field.fill_in(with: value)
         end
       end
       
@@ -130,11 +175,14 @@ class Smoke
       
       def wait_until_loaded
         started_waiting = Time.now
-        while session.has_selector?('.throbber,img[src*="throbber"]')
-          sleep 0.5
-        end
-        if (wait_time = Time.now - started_waiting) > 2.25
-          puts "Waited %.1f seconds for %s to load".yellow % [wait_time, session.current_url.sub(%r[.+://[^/]+],'')]
+        sleep 0.1
+        if selector = @smoke.configuration.spinner_selector
+          while session.has_selector?(selector, visible: true, wait: 0.2)
+            sleep 0.25
+          end
+          if (wait_time = Time.now - started_waiting) > 2.25
+            puts "Waited %.1f seconds for %s to load".yellow % [wait_time, session.current_url.sub(%r[.+://[^/]+],'')]
+          end
         end
       end
       
@@ -210,6 +258,10 @@ class Smoke
 
       private
 
+      def debug(*a)
+        # STDERR.puts "#{Time.now.strftime('%y.%m.%d %I:%M:%S.%6N')} | #{a.join(' ')}"
+      end
+
       def recaptcha_frame
         session.all('iframe').find{|f| f['src'].include?('recaptcha') }
       end
@@ -225,7 +277,31 @@ class Smoke
           block.call
         end
       end
-      
+
+      def element_associated_with_text(label, tag: 'input', tag_names: %w[label div span], **options)
+        element = deepest_element_with_text(label, tag_names: tag_names, **options)
+        while element && element.tag_name != 'body'
+          if contained_input = element.first(tag, minimum: 0)
+            return contained_input
+          end
+          element = element.find(:xpath, '..')
+        end
+      end
+
+      def deepest_element_with_text(text, tag_names: %w[div span a button], **options)
+        tag_names = tag_names.join(',') if tag_names.is_a?(Array)
+        debug "searching for #{tag_names.inspect} with exact text #{text.inspect}"
+        elements = session.all(tag_names, options.merge(exact_text: text))
+        debug "searching for #{tag_names.inspect} with any text #{text.inspect}" if elements.empty?
+        elements = session.all(tag_names, options.merge(text: text)) if elements.empty?
+        debug "sorting #{elements.length} elements"
+        elements = elements.to_a.sort_by{|e| e.path.length}
+        debug "eliminating nesting..."
+        elements.delete_if {|e| elements.any? {|ee| ee != e && ee.path.start_with?(e.path) } }
+        debug "left with #{elements.count} elements"
+        debug "first element's text: #{elements.first.text}"
+        elements.first
+      end
     end
   end
 end

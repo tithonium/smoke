@@ -1,15 +1,12 @@
-# require_relative 'test/harness'
-
 class Smoke
   class Test
     include Comparable
-    include Smoke::Test::Harness
     
     def self.new_from_list(definitions, smoke)
       definitions.map{|d| new(d, smoke) }
     end
     
-    attr_reader :name, :steps, :exception, :has_run
+    attr_reader :name, :steps, :exception, :has_run, :execution_mode, :execution_harness
     attr_accessor :errors, :passes
     
     def initialize(definition, smoke)
@@ -17,6 +14,8 @@ class Smoke
       @name = definition.name.to_sym
       @requirements = definition.requirements.freeze
       @steps = definition.steps.freeze
+      @execution_mode = definition.mode
+      @execution_harness = definition.harness
       @passes = 0
       @errors = 0
       @exception = nil
@@ -69,6 +68,8 @@ class Smoke
         return
       end
       
+      self.eigenclass.include execution_harness
+      
       puts "#{name}:"
       steps.each do |step|
         if respond_to?(step.first)
@@ -95,4 +96,5 @@ class Smoke
     end
     
   end
+
 end

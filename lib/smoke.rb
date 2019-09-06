@@ -8,9 +8,17 @@ class Smoke
     @argv = argv
     configuration
   end
+
+  class FakeTest
+    include Test::Harness
+    def initialize(s)
+      @smoke = s
+    end
+  end
   
   def console(context = binding)
     require 'pry'
+    context.local_variable_set(:test, FakeTest.new(self))
     Pry.start(context, quiet: true)
   end
   
@@ -43,7 +51,8 @@ class Smoke
       tests_to_run.each(&:run)
     end
   rescue => ex
-    STDERR.puts "Aborting due to exception".red
+    STDERR.puts "Aborting due to exception: #{ex.inspect}".red
+    raise
   end
   
   def failed?
@@ -108,6 +117,10 @@ class Smoke
   def configure_capybara
     return if @capybara_configured
     @capybara_configured = true
+    
+    Capybara.configure do |c|
+      c.default_max_wait_time = 0.33
+    end
     
     if configuration.driver == :poltergeist
       require 'capybara/poltergeist'

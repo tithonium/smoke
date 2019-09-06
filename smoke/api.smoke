@@ -1,0 +1,7 @@
+jsmoke :Api do
+
+  visit "https://jsonplaceholder.typicode.com/users"
+  remember :user, json.first
+  display remember(:user)
+
+end

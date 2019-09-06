@@ -21,6 +21,7 @@ class Smoke
             @options[:trace] = true
           when /\A--(?:ignore|no)-j(?:ava)?s(?:cript)?(?:-errors)?\Z/
             @options[:js_errors] = false
+            true
           when /\A--(?:dry[_-]?run|no-?op)\Z/
             @options[:dry_run] = true
           when /\A--host/
@@ -40,12 +41,14 @@ class Smoke
             else
               @options[:config_file] = argv.delete_at(idx + 1)
             end
+            true
           when /\A--root?/
             if arg =~ /\A--root=(.+)/
               @options[:test_root] = $1
             else
               @options[:test_root] = argv.delete_at(idx + 1)
             end
+            true
           when /\A--driver/
             if arg =~ /\A--driver=(.+)/
               @options[:driver] = $1.to_sym
@@ -65,7 +68,7 @@ class Smoke
       end
 
       unless @options[:config_file]
-        %w[config/smoke.yml config/smoke.yaml smoke.yml smoke.yaml].each do |file|
+        %W[config/smoke.yaml config/smoke.yml smoke.yaml smoke.yml #{ENV['HOME']}/.smoke.yaml #{ENV['HOME']}/.smoke.yml].each do |file|
           filename = [@options[:app_root], file].join('/')
           if File.exist?(filename)
             @options[:config_file] = filename
@@ -75,7 +78,7 @@ class Smoke
       end
             
       if @options[:config_file] && File.exist?(@options[:config_file])
-        config = YAML.load(IO.read(@options[:config_file]))
+        config = YAML.load(IO.read(@options[:config_file])).transform_keys(&:to_sym)
         @options = config.merge(@options)
       end
 
@@ -102,12 +105,24 @@ class Smoke
       end)) ? 'https' : 'http'
     end
 
-    %i[driver test_root].each do |opt|
+    %i[driver test_root spinner_selector].each do |opt|
       define_method(opt) { @options[opt] }
     end
     
     %i[js_errors slow trace force dry_run].each do |opt|
       define_method("#{opt}?") { !!@options[opt] }
+    end
+
+    def respond_to_missing?(name, _)
+      super || @options.key?(name.to_sym)
+    end
+    
+    def method_missing(name, *args, &block)
+      if @options.key?(name.to_sym)
+        @options[name]
+      else
+        super
+      end
     end
     
   end
